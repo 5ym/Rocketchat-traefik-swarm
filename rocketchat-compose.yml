@@ -1,0 +1,36 @@
+version: '3.8'
+services:
+  rocketchat:
+    image: rocket.chat
+    volumes:
+      - ./data/uploads:/app/uploads
+    environment:
+      - ROOT_URL=http://r.localhost
+      - MONGO_URL=mongodb://r-mongo:27017/local
+      - MONGO_OPLOG_URL=mongodb://r-mongo:27017/local
+    networks:
+      - docker_default
+      - default
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.rc.rule=Host(`r.localhost`)"
+        - "traefik.http.services.rc.loadbalancer.server.port=3000"
+      placement:
+        constraints:
+          - node.role == manager
+  r-mongo:
+    image: mongo:4.0
+    volumes:
+      - ./data/db:/data/db
+      - ./data/configdb:/data/configdb
+    command: mongod --smallfiles --oplogSize 128 --replSet rs0
+  r-init:
+    image: mongo:4.0
+    command: 'mongo r-mongo/rocketchat --eval "rs.initiate({ _id: ''rs0'', members: [ { _id: 0, host: ''localhost:27017'' } ]})"'
+
+networks:
+  docker_default:
+    external: true
+    name: docker_default
+      
